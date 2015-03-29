@@ -1,6 +1,7 @@
 'use strict';
 
 var React = require('react-native');
+var SearchResults = require('./SearchResults');
 
 // this is a "destructuring assignment," which lets you extract multiple object properties
 // and assign them to variables using a single statement. As a result, the rest of your
@@ -67,8 +68,86 @@ var styles = StyleSheet.create({
   }
 });
 
+function urlForQueryAndPage(key, value, pageNumber) {
+  var data = {
+    country: 'uk',
+    pretty: '1',
+    encoding: 'json',
+    listing_type: 'buy',
+    action: 'search_listings',
+    page: pageNumber
+  }
+  data[key] = value;
+
+  var querystring = Object.keys(data)
+    .map(key => key + '=' + encodeURIComponent(data[key]))
+    .join('&');
+
+  return 'http://api.nestoria.co.uk/api?' + querystring;
+};
+
 class SearchPage extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      searchString: 'london',
+      isLoading: false,
+      message: ''
+    };
+  }
+
+  onSearchTextChanged(event) {
+    this.setState({ searchString: event.nativeEvent.text });
+  }
+
+  _executeQuery(query) {
+    this.setState({ isLoading: true })
+
+    // fetch, a part of the Web API, provides a vastly
+    // improved API versus XMLHttpRequest.
+    // the asynchronous response is returned as a promise,
+    // with the success path parsing the JSON and supplying
+    // it to another method
+    fetch(query)
+      .then(response => response.json())
+      .then(json => this._handleResponse(json.response))
+      .catch(error =>
+        this.setState({
+          isLoading: false,
+          message: 'Something bad happened ' + error
+        })
+      );
+  }
+
+  _handleResponse(response) {
+    this.setState({ isLoading: false, message: '' });
+    if (response.application_response_code.substr(0, 1) === '1') {
+      // push ensures the search results are pushed
+      // onto the navigation stack, which means we
+      // get a 'Back' button to return to root
+      this.props.navigator.push({
+        title: 'Results',
+        component: SearchResults,
+        passProps: {listings: response.listings}
+      });
+    } else {
+      this.setState({ message: 'Location not recognized; please try again.' });
+    }
+  }
+
+  onSearchPressed() {
+    var query = urlForQueryAndPage('place_name', this.state.searchString, 1);
+    this._executeQuery(query);
+  }
+
   render() {
+    // empty view will not occupy any space
+    var spinner = this.state.isLoading ?
+      ( <ActivityIndicatorIOS
+          hidden='true'
+          size='large' /> ) :
+      ( <View/> );
+
     return (
       <View style={styles.container}>
         <Text style={styles.description}>
@@ -80,11 +159,13 @@ class SearchPage extends Component {
         <View style={styles.flowRight}>
           <TextInput
             style={styles.searchInput}
+            value={this.state.searchString}
+            onChange={this.onSearchTextChanged.bind(this)}
             placeholder='Search via name or postcode' />
           <TouchableHighlight
             style={styles.button}
             underlayColor='99d9f4'>
-            <Text style={styles.buttonText}>Go</Text>
+            <Text style={styles.buttonText} onPress={this.onSearchPressed.bind(this)}>Go</Text>
           </TouchableHighlight>
         </View>
         <TouchableHighlight
@@ -93,6 +174,8 @@ class SearchPage extends Component {
           <Text style={styles.buttonText}>Location</Text>
         </TouchableHighlight>
         <Image source={require('image!house')} style={styles.image}/>
+        {spinner}
+        <Text style={styles.description}>{this.state.message}</Text>
       </View>
     );
   }
