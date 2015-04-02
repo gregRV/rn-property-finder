@@ -92,7 +92,7 @@ class SearchResults extends Component {
       // ListView displays rows of data within
       // a scrolling container, like UITableView
       // You supply data to LV via a ListView.DataSource
-      // and a function that supplies the UI for each row.
+      // and a function that supplies the UI for each row!
       <ListView
         dataSource={this.state.dataSource}
         renderRow={this.renderRow.bind(this)}
